@@ -1,6 +1,6 @@
-streamlit
+flask
 ultralytics
 opencv-python-headless
 Pillow
 numpy
-
+gunicorn
