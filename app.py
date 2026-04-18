@@ -1,107 +1,65 @@
-import streamlit as st
+from flask import Flask, render_template, request, jsonify
 from ultralytics import YOLO
-from PIL import Image
-import numpy as np
 import os
+from PIL import Image
+import io
+import base64
+import numpy as np
 
-# Set page configuration with a custom theme look
-st.set_page_config(
-    page_title="Vegetable AI | Precision Detection",
-    page_icon="🥬",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+app = Flask(__name__)
 
-# Custom CSS for a professional look
-st.markdown("""
-    <style>
-    .main {
-        background-color: #f5f7f9;
-    }
-    .stButton>button {
-        width: 100%;
-        border-radius: 5px;
-        height: 3em;
-        background-color: #00b894;
-        color: white;
-        border: none;
-    }
-    .stButton>button:hover {
-        background-color: #55efc4;
-        color: white;
-    }
-    .reportview-container .main .block-container {
-        padding-top: 2rem;
-    }
-    </style>
-    """, unsafe_allow_stdio=True)
+# Load the model once when the server starts
+model = YOLO('best.pt')
 
-# App Sidebar
-st.sidebar.title("🥬 Settings")
-st.sidebar.info("This system uses YOLOv11 for real-time vegetable detection.")
-conf_threshold = st.sidebar.slider("Confidence Threshold", 0.1, 1.0, 0.25)
-st.sidebar.markdown("---")
-st.sidebar.markdown("### **Author**")
-st.sidebar.write("**Habibur Rahman Sajal**")
-st.sidebar.write("Computer Science Researcher")
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-# Main Header
-st.title("🥬 Vegetable Detection & Analytics")
-st.markdown("---")
-
-# Function to load model
-@st.cache_resource
-def load_yolo_model():
-    # Ensure 'best.pt' is in your GitHub root directory
-    model = YOLO('best.pt')
-    return model
-
-try:
-    model = load_yolo_model()
-except Exception as e:
-    st.error(f"Error loading model: {e}")
-
-# Layout columns
-col1, col2 = st.columns([1, 1])
-
-with col1:
-    st.subheader("📸 Upload Image")
-    uploaded_file = st.file_uploader("Drop an image of vegetables here...", type=["jpg", "jpeg", "png"])
+@app.route('/predict', methods=['POST'])
+def predict():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file uploaded'})
     
-    if uploaded_file:
-        raw_image = Image.open(uploaded_file)
-        st.image(raw_image, caption="Uploaded Original Image", use_container_width=True)
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'})
 
-with col2:
-    st.subheader("🔍 Detection Result")
-    if uploaded_file:
-        with st.spinner("Processing image..."):
-            img_array = np.array(raw_image)
-            # Run YOLOv11 Inference
-            results = model.predict(source=img_array, conf=conf_threshold)
-            
-            # Plot the results
-            res_plotted = results[0].plot()
-            st.image(res_plotted, caption="AI Identification Results", use_container_width=True)
-            
-            # Display Statistics
-            st.markdown("### 📋 Statistics")
-            labels = []
-            for box in results[0].boxes:
-                class_id = int(box.cls[0])
-                name = model.names[class_id]
-                score = float(box.conf[0])
-                labels.append(f"{name} ({score:.2%})")
-            
-            if labels:
-                st.success(f"Detected {len(labels)} objects.")
-                for label in set(labels):
-                    st.write(f"✅ {label}")
-            else:
-                st.warning("No objects detected at current threshold.")
-    else:
-        st.info("Please upload an image to start analysis.")
+    try:
+        # Read the uploaded image
+        img_bytes = file.read()
+        img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
 
-# Footer
-st.markdown("---")
-st.markdown("<center>Developed for Academic Research Purposes</center>", unsafe_allow_stdio=True)
+        # YOLO Inference
+        results = model.predict(source=img, conf=0.25)
+        
+        # Plot results on the image
+        res_plotted = results[0].plot()
+        
+        # Convert the plotted image (numpy array) back to a PIL image
+        res_img = Image.fromarray(res_plotted.astype('uint8'))
+        
+        # Save the result image to a buffer as base64
+        buffered = io.BytesIO()
+        res_img.save(buffered, format="JPEG")
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+
+        # Extract detected class names and confidence scores
+        detected_details = []
+        for box in results[0].boxes:
+            class_id = int(box.cls[0])
+            name = model.names[class_id]
+            conf = float(box.conf[0])
+            detected_details.append(f"{name} ({conf:.2%})")
+
+        return jsonify({
+            'image': img_str,
+            'items': list(set(detected_details)) if detected_details else ["No vegetables detected"]
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+if __name__ == '__main__':
+    # Use port from environment variable for deployment compatibility
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
