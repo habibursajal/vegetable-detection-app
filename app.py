@@ -7,13 +7,13 @@ from PIL import Image
 
 app = Flask(__name__)
 
-# Load Model
+# Load Model - Since your model is only 5.5MB, it's very efficient
 try:
     model = YOLO('best.pt')
 except Exception as e:
     print(f"Error loading model: {e}")
 
-# Professional HTML, CSS, and JS all in one string
+# Single-file UI for maximum speed and zero file-path errors
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -23,59 +23,47 @@ HTML_TEMPLATE = """
     <title>Vegetable AI Researcher</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Poppins', sans-serif; background: #f4f7f6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 90%; max-width: 500px; text-align: center; }
-        h1 { color: #2d3436; margin-bottom: 10px; font-size: 24px; }
+        body { font-family: 'Poppins', sans-serif; background: #f4f7f6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 500px; text-align: center; }
+        h1 { color: #2d3436; margin-bottom: 5px; font-size: 24px; }
         h1 span { color: #00b894; }
-        p { color: #636e72; font-size: 14px; margin-bottom: 20px; }
-        .upload-area { border: 2px dashed #00b894; padding: 20px; border-radius: 10px; cursor: pointer; margin-bottom: 20px; transition: 0.3s; }
+        .upload-area { border: 2px dashed #00b894; padding: 25px; border-radius: 10px; cursor: pointer; margin-bottom: 20px; background: #f9fdfc; transition: 0.3s; }
         .upload-area:hover { background: #f0fff4; }
-        input[type="file"] { display: none; }
-        .btn { background: #00b894; color: white; border: none; padding: 12px 25px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; font-size: 16px; transition: 0.3s; }
+        .btn { background: #00b894; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; font-size: 16px; }
         .btn:disabled { background: #b2bec3; cursor: not-allowed; }
         #resultArea { margin-top: 25px; display: none; }
-        #outputImage { width: 100%; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        .badge-container { margin-top: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-        .badge { background: #e6fffa; color: #00b894; border: 1px solid #00b894; padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+        #outputImage { width: 100%; border-radius: 10px; border: 3px solid #00b894; }
+        .badge { display: inline-block; background: #e6fffa; color: #00b894; border: 1px solid #00b894; padding: 6px 15px; border-radius: 20px; font-size: 14px; font-weight: 600; margin: 5px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🥬 Vegetable AI <span>Researcher</span></h1>
-        <p>Advanced Identification System by Habibur Rahman Sajal</p>
+        <p style="color: #636e72; font-size: 14px;">By Habibur Rahman Sajal</p>
         
         <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-            <span id="fileName">📁 Click to upload vegetable image</span>
-            <input type="file" id="fileInput" accept="image/*" onchange="updateFileName(this)">
+            <span id="fileName">📁 Upload Vegetable Photo</span>
+            <input type="file" id="fileInput" accept="image/*" style="display:none;" onchange="document.getElementById('fileName').innerText = this.files[0].name">
         </div>
 
-        <button id="detectBtn" class="btn" onclick="analyzeImage()">Analyze Image</button>
+        <button id="detectBtn" class="btn" onclick="analyze()">Analyze Image</button>
 
         <div id="resultArea">
-            <h3 style="font-size: 18px; color: #2d3436;">Detection Result:</h3>
-            <img id="outputImage" src="" alt="Result">
-            <div id="badgeContainer" class="badge-container"></div>
+            <h3 style="font-size: 18px; color: #2d3436;">Result:</h3>
+            <img id="outputImage" src="">
+            <div id="labelContainer" style="margin-top: 15px;"></div>
         </div>
     </div>
 
     <script>
-        function updateFileName(input) {
-            const fileName = input.files[0] ? input.files[0].name : "📁 Click to upload vegetable image";
-            document.getElementById('fileName').textContent = fileName;
-        }
-
-        async function analyzeImage() {
+        async function analyze() {
             const fileInput = document.getElementById('fileInput');
             const btn = document.getElementById('detectBtn');
             const resultArea = document.getElementById('resultArea');
-            const badgeContainer = document.getElementById('badgeContainer');
 
-            if (!fileInput.files[0]) {
-                alert("Please select an image first!");
-                return;
-            }
+            if (!fileInput.files[0]) return alert("Please select an image!");
 
-            btn.innerText = "Analyzing... Please wait";
+            btn.innerText = "Processing... (Wait 10-20s)";
             btn.disabled = true;
             resultArea.style.display = 'none';
 
@@ -87,15 +75,14 @@ HTML_TEMPLATE = """
                 const data = await response.json();
 
                 if (data.error) {
-                    alert(data.error);
+                    alert("Error: " + data.error);
                 } else {
                     document.getElementById('outputImage').src = "data:image/jpeg;base64," + data.image;
-                    badgeContainer.innerHTML = data.items.map(item => `<span class="badge">✅ ${item}</span>`).join('');
+                    document.getElementById('labelContainer').innerHTML = data.items.map(i => `<span class="badge">✅ ${i}</span>`).join('');
                     resultArea.style.display = 'block';
-                    resultArea.scrollIntoView({ behavior: 'smooth' });
                 }
-            } catch (error) {
-                alert("Server timeout or error. Please try a smaller image.");
+            } catch (e) {
+                alert("Server Timeout. Please try a smaller image or a screenshot.");
             } finally {
                 btn.innerText = "Analyze Image";
                 btn.disabled = false;
@@ -113,30 +100,30 @@ def index():
 @app.route('/predict', methods=['POST'])
 def predict():
     if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'})
+        return jsonify({'error': 'No file'})
     
     file = request.files['file']
     try:
+        # Step 1: Force Resize image on arrival to 640px to save RAM
         img = Image.open(io.BytesIO(file.read())).convert("RGB")
+        img.thumbnail((640, 640)) 
         
-        # Optimization: imgsz=320 for speed
+        # Step 2: Prediction with low internal resolution
         results = model.predict(source=img, conf=0.25, imgsz=320)
         
-        # Plotting result
+        # Step 3: Draw boxes and compress result
         res_plotted = results[0].plot()
         res_img = Image.fromarray(res_plotted.astype('uint8'))
         
-        # Encoding result image
         buffered = io.BytesIO()
-        res_img.save(buffered, format="JPEG", quality=75)
+        res_img.save(buffered, format="JPEG", quality=70) # Quality 70 keeps file size small
         img_str = base64.b64encode(buffered.getvalue()).decode()
 
-        # Detected names
         names = [model.names[int(box.cls[0])] for box in results[0].boxes]
 
         return jsonify({
             'image': img_str,
-            'items': list(set(names)) if names else ["No items detected"]
+            'items': list(set(names)) if names else ["Nothing detected"]
         })
     except Exception as e:
         return jsonify({'error': str(e)})
