@@ -1,18 +1,16 @@
 import os
 import io
 import base64
-import numpy as np
 from flask import Flask, render_template, request, jsonify
 from ultralytics import YOLO
 from PIL import Image
+import gc  # Garbage Collector to free up RAM
 
 app = Flask(__name__)
 
-try:
-    model = YOLO('best.pt', task='detect')
-    model.to('cpu')
-except Exception as e:
-    print(f"Model Loading Error: {e}")
+# Load model with half precision if possible, though CPU ignores it, 
+# it's good practice.
+model = YOLO('best.pt', task='detect')
 
 @app.route('/')
 def index():
@@ -24,38 +22,44 @@ def predict():
         return jsonify({'error': 'No file uploaded'})
     
     file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'})
-
     try:
-        img_bytes = file.read()
-        img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        # 1. Open and resize image IMMEDIATELY to save RAM
+        img = Image.open(io.BytesIO(file.read())).convert("RGB")
+        img.thumbnail((416, 416)) # Resize to max 416px before sending to YOLO
 
-        # Optimization: Use imgsz=320 to reduce RAM usage and increase speed
-        results = model.predict(source=img, conf=0.25, imgsz=320, task='detect')
+        # 2. Run prediction with absolute minimum settings
+        results = model.predict(
+            source=img, 
+            conf=0.35,     # Increased confidence to filter noise
+            imgsz=320,     # Very small internal resolution for speed
+            task='detect',
+            verbose=False,
+            device='cpu'   # Force CPU
+        )
         
+        # 3. Handle results
         res_plotted = results[0].plot()
         res_img = Image.fromarray(res_plotted.astype('uint8'))
         
+        # Save with high compression to speed up transfer
         buffered = io.BytesIO()
-        res_img.save(buffered, format="JPEG", quality=75)
+        res_img.save(buffered, format="JPEG", quality=60) 
         img_str = base64.b64encode(buffered.getvalue()).decode()
 
-        detected_details = []
-        for box in results[0].boxes:
-            class_id = int(box.cls[0])
-            name = model.names[class_id]
-            conf = float(box.conf[0])
-            detected_details.append(f"{name} ({conf:.2%})")
+        detected_items = [model.names[int(box.cls[0])] for box in results[0].boxes]
+
+        # 4. Clear memory manually
+        del results
+        gc.collect() 
 
         return jsonify({
             'image': img_str,
-            'items': list(set(detected_details)) if detected_details else ["No vegetables detected"]
+            'items': list(set(detected_details)) if (detected_items := detected_items) else ["Nothing detected"]
         })
 
     except Exception as e:
-        print(f"Prediction Error: {str(e)}")
-        return jsonify({'error': 'Analysis failed. Please try a smaller image.'})
+        print(f"Error: {e}")
+        return jsonify({'error': 'Server Busy. Try a smaller image.'})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
