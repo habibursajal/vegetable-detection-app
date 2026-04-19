@@ -1,32 +1,39 @@
-# 🥬 Vegetable Detection System using YOLOv11
+# 🥬 Vegetable AI Researcher: Multi-Class Detection System
 
-![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
-![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B)
-![YOLO](https://img.shields.io/badge/YOLO-v11n-green)
+![YOLOv11](https://img.shields.io/badge/Model-YOLOv11n-green)
+![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97-Hugging%20Face-yellow)
+![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
 
-This repository contains a real-time **Vegetable Detection System** built with **YOLOv11**. This project is part of an undergraduate research focusing on automated vegetable identification in the context of Bangladesh's agricultural variety.
+This repository contains an advanced **Multi-Vegetable Identification System** developed as part of undergraduate research in Computer Science & Engineering. The system is optimized to identify 19 local varieties from complex environments.
 
 ## 🚀 Live Demo
-Access the web app here: [**Live Deployment Link**](YOUR_STREAMLIT_LINK_HERE)
+The application is live and hosted on Hugging Face Spaces:
+[**Access Live Web App**](https://huggingface.co/spaces/habibursajal/Vegetable-Detection-System)
 
-## 📌 Project Overview
-- **Architecture:** YOLOv11 (Nano)
-- **Deployment:** Streamlit Cloud
-- **Dataset:** Custom botanical dataset focused on 28+ classes.
-- **Goal:** Precision classification for research and agricultural automation.
+## 📌 Research Overview
+- **Core Model:** YOLOv11 (Nano)
+- **Dataset:** 
+- **Classification:** Local vegetables.
+- **Inference:** Optimized for CPU-based real-time detection using Gradio and OpenCV.
 
-## 📂 Repository Structure
-- `app.py`: The web application script.
-- `best.pt`: Trained model weights (YOLOv11).
-- `requirements.txt`: Python dependencies.
+## 📂 Key Files
+- `app.py`: Gradio Blocks interface with RGB color-correction and analytics.
+- `best.pt`: Trained weights for Vegetable dataset (5.5 MB).
+- `requirements.txt`: Minimal dependencies for stable deployment.
 
-## 🛠️ Local Setup
-1. Clone: `git clone https://github.com/your-username/your-repo.git`
-2. Install: `pip install -r requirements.txt`
-3. Run: `streamlit run app.py`
+## 🛠️ Features
+- **Multi-Object Detection:** Capable of detecting and counting several vegetables in a single frame.
+- **Analytics:** Provides a summarized count of each detected variety.
+- **Professional UI:** Clean and academic layout designed for research presentation.
 
-## 📊 Evaluation
-The model is analyzed using **mAP (mean Average Precision)**, **Confusion Matrix**, and **F1-Score curves** to ensure reliability in identifying similar-looking vegetables (e.g., Snake Gourd vs. Papaya).
+## 📊 Evaluation Metrics
+The model was evaluated based on:
+- **mAP@.5:** High precision in overlapping objects.
+- **Confusion Matrix:** Minimal misclassification between similar-looking botanical varieties.
+- **Real-world Robustness:** Tested against local market lighting conditions.
 
 ## 👤 Author
-**Habibur Rahman Sajal** Computer Science Researcher, Dhaka, Bangladesh.
+**Habibur Rahman Sajal** *Computer Science & Engineering Researcher* *Dhaka, Bangladesh*
+
+---
+*Disclaimer: This project is intended for research purposes only.*
