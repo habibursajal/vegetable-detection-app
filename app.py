@@ -1,15 +1,18 @@
-from flask import Flask, render_template, request, jsonify
-from ultralytics import YOLO
 import os
-from PIL import Image
 import io
 import base64
 import numpy as np
+from flask import Flask, render_template, request, jsonify
+from ultralytics import YOLO
+from PIL import Image
 
 app = Flask(__name__)
 
-# Load the model once when the server starts
-model = YOLO('best.pt')
+try:
+    model = YOLO('best.pt', task='detect')
+    model.to('cpu')
+except Exception as e:
+    print(f"Model Loading Error: {e}")
 
 @app.route('/')
 def index():
@@ -25,25 +28,25 @@ def predict():
         return jsonify({'error': 'No file selected'})
 
     try:
-        # Read the uploaded image
         img_bytes = file.read()
         img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
 
-        # YOLO Inference
-        results = model.predict(source=img, conf=0.25)
+        # Optimization: Use imgsz=320 to reduce RAM usage and increase speed
+        results = model.predict(
+            source=img, 
+            conf=0.25, 
+            imgsz=320, 
+            task='detect',
+            verbose=False
+        )
         
-        # Plot results on the image
         res_plotted = results[0].plot()
-        
-        # Convert the plotted image (numpy array) back to a PIL image
         res_img = Image.fromarray(res_plotted.astype('uint8'))
         
-        # Save the result image to a buffer as base64
         buffered = io.BytesIO()
-        res_img.save(buffered, format="JPEG")
+        res_img.save(buffered, format="JPEG", quality=75)
         img_str = base64.b64encode(buffered.getvalue()).decode()
 
-        # Extract detected class names and confidence scores
         detected_details = []
         for box in results[0].boxes:
             class_id = int(box.cls[0])
@@ -57,9 +60,9 @@ def predict():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)})
+        print(f"Prediction Error: {str(e)}")
+        return jsonify({'error': 'Analysis failed. Please try a smaller image.'})
 
 if __name__ == '__main__':
-    # Use port from environment variable for deployment compatibility
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
