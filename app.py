@@ -32,13 +32,7 @@ def predict():
         img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
 
         # Optimization: Use imgsz=320 to reduce RAM usage and increase speed
-        results = model.predict(
-            source=img, 
-            conf=0.25, 
-            imgsz=320, 
-            task='detect',
-            verbose=False
-        )
+        results = model.predict(source=img, conf=0.25, imgsz=320, task='detect')
         
         res_plotted = results[0].plot()
         res_img = Image.fromarray(res_plotted.astype('uint8'))
